@@ -1,0 +1,70 @@
+@page "/enrollments"
+@rendermode InteractiveServer
+
+<PageTitle>Enrollments</PageTitle>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h1 class="h3 mb-0">Enrollments</h1>
+    <button type="button" class="btn btn-dark">New enrollment</button>
+</div>
+
+<select class="form-select mb-3" style="max-width:240px" @bind="status">
+    <option value="">All statuses</option>
+    <option value="Active">Active</option>
+    <option value="Pending">Pending</option>
+</select>
+
+@if (enrollments.Count == 0)
+{
+    <div class="card p-4 text-center">
+        <p class="fw-semibold mb-1">No enrollments yet</p>
+        <p class="text-muted mb-0">Click "New enrollment" to create the first one.</p>
+    </div>
+}
+else
+{
+    <div class="table-responsive card">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Student</th>
+                    <th>Grade / Section</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var e in Filtered)
+                {
+                    <tr>
+                        <td>@e.Student</td>
+                        <td>@e.Section</td>
+                        <td>@e.Date</td>
+                        <td><span class="badge @(e.Status == "Active" ? "text-bg-dark" : "text-bg-warning")">@e.Status</span></td>
+                        <td class="text-end">
+                            <button type="button" class="btn btn-sm btn-outline-dark">Edit</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger">Delete</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (!Filtered.Any())
+    {
+        <p class="text-muted mt-3">No enrollments with that status.</p>
+    }
+}
+
+@code {
+    record Enrollment(string Student, string Section, string Date, string Status);
+
+    string status = "";
+
+    // Lista vacía: luego vendrá de la base de datos
+    List<Enrollment> enrollments = new();
+
+    IEnumerable<Enrollment> Filtered => enrollments.Where(e => status == "" || e.Status == status);
+}

@@ -1,0 +1,22 @@
+﻿@inherits LayoutComponentBase
+
+<div class="d-flex" style="min-height:100vh">
+    <nav class="d-none d-md-block border-end bg-light p-3" style="width:220px">
+        <h5 class="fw-bold mb-4">EduTrack</h5>
+        <ul class="nav flex-column">
+            <li><NavLink class="nav-link" href="dashboard">Dashboard</NavLink></li>
+            <li><NavLink class="nav-link" href="students">Students</NavLink></li>
+            <li><NavLink class="nav-link" href="enrollments">Enrollments</NavLink></li>
+        </ul>
+    </nav>
+
+    <main class="flex-grow-1 p-3 p-md-4 pb-5 mb-4">
+        @Body
+    </main>
+</div>
+
+<nav class="d-md-none fixed-bottom bg-white border-top d-flex justify-content-around py-2">
+    <NavLink class="text-dark text-decoration-none" href="dashboard">Dashboard</NavLink>
+    <NavLink class="text-dark text-decoration-none" href="students">Students</NavLink>
+    <NavLink class="text-dark text-decoration-none" href="enrollments">Enrollments</NavLink>
+</nav>
