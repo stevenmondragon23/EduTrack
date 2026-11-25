@@ -1,87 +1,184 @@
 @page "/dashboard"
+@rendermode InteractiveServer
+@using EduTrack.Services
+@inject EduTrackState State
 
 <PageTitle>Dashboard</PageTitle>
 
-<h1 class="h3 mb-4">Dashboard</h1>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <h1 class="h3 mb-0">Dashboard</h1>
+    <span class="badge text-bg-dark">Role: @State.ActiveRole</span>
+</div>
 
-<div class="row g-3 mb-4">
-    @foreach (var k in kpis)
-    {
-        <div class="col-12 col-sm-4">
+@if (State.ActiveRole == "Student")
+{
+    var enrolledSubjects = GetEnrolledSubjectsForStudent(State.ActiveStudentId);
+    var overallAvg = enrolledSubjects.Count == 0
+        ? 0m
+        : Math.Round(enrolledSubjects.Average(x => x.Average), 1);
+
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6">
             <div class="card p-3">
-                <small class="text-muted">@k.Label</small>
-                <div class="fs-2 fw-bold">@k.Value</div>
+                <small class="text-muted">Enrolled subjects</small>
+                <div class="fs-2 fw-bold">@enrolledSubjects.Count</div>
             </div>
         </div>
-    }
-</div>
-
-<div class="row g-3">
-    <div class="col-lg-7">
-        <div class="card p-3 mb-3">
-            <h5>Enrollments by section</h5>
-            <div class="border rounded bg-light d-flex align-items-center justify-content-center text-muted" style="height:170px">No data yet</div>
-        </div>
-        <div class="card p-3">
-            <h5>Recent activity</h5>
-            @if (activity.Count == 0)
-            {
-                <p class="text-muted mb-0">No activity yet.</p>
-            }
-            else
-            {
-                <ul class="list-group list-group-flush">
-                    @foreach (var a in activity)
-                    {
-                        <li class="list-group-item">@a</li>
-                    }
-                </ul>
-            }
+        <div class="col-12 col-sm-6">
+            <div class="card p-3">
+                <small class="text-muted">Overall average</small>
+                <div class="fs-2 fw-bold">@overallAvg%</div>
+            </div>
         </div>
     </div>
 
-    <div class="col-lg-5">
-        <div class="card p-3 mb-3">
-            <h5>My courses · current grade</h5>
-            @if (courses.Count == 0)
+    <div class="card p-3">
+        <h5 class="mb-3">My subjects &amp; current averages</h5>
+        @if (enrolledSubjects.Count == 0)
+        {
+            <p class="text-muted mb-0">No subjects assigned yet.</p>
+        }
+        else
+        {
+            @foreach (var item in enrolledSubjects)
             {
-                <p class="text-muted mb-0">No courses yet.</p>
-            }
-            else
-            {
-                @foreach (var c in courses)
-                {
-                    <div class="mb-2">
-                        <div class="d-flex justify-content-between"><span>@c.Name</span><strong>@c.Grade%</strong></div>
-                        <div class="progress"><div class="progress-bar bg-dark" style="width: @(c.Grade)%"></div></div>
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <span><strong>@item.Subject.Code</strong> · @item.Subject.Name (@item.Subject.TeacherName)</span>
+                        <strong>@item.Average%</strong>
                     </div>
-                }
+                    <div class="progress mt-1" style="height: 10px;">
+                        <div class="progress-bar bg-dark" style="width: @item.Average%"></div>
+                    </div>
+                </div>
             }
-        </div>
+        }
+    </div>
+}
+else if (State.ActiveRole == "Teacher")
+{
+    var assignedStudentIds = State.Enrollments
+        .Select(e => e.StudentId)
+        .Distinct()
+        .ToList();
 
-        <div class="card p-3">
-            <h5>What-if calculator</h5>
-            <label class="form-label mb-0">Course</label>
-            <input type="text" class="form-control mb-2" placeholder="Select course" />
-            <label class="form-label mb-0">Target grade</label>
-            <input type="text" class="form-control mb-3" placeholder="e.g. 90" />
-            <p class="mb-3">Needed on final: <strong>—</strong></p>
-            <button type="button" class="btn btn-dark">Calculate</button>
+    var submittedGrades = State.Grades.Where(g => g.IsSubmitted).ToList();
+    decimal classAvg = 0m;
+    if (submittedGrades.Count > 0)
+    {
+        var pcts = submittedGrades
+            .Select(g => new { Grade = g, Act = State.Activities.FirstOrDefault(a => a.Id == g.ActivityId) })
+            .Where(x => x.Act is not null && x.Act.MaxScore > 0)
+            .Select(x => (x.Grade.Score / x.Act!.MaxScore) * 100m)
+            .ToList();
+
+        if (pcts.Count > 0)
+            classAvg = Math.Round(pcts.Average(), 1);
+    }
+
+    var topStudents = State.Students
+        .Select(s =>
+        {
+            var subs = GetEnrolledSubjectsForStudent(s.Id);
+            var avg = subs.Count == 0 ? 0m : Math.Round(subs.Average(x => x.Average), 1);
+            return new { s.Name, s.Section, Average = avg };
+        })
+        .OrderByDescending(x => x.Average)
+        .Take(3)
+        .ToList();
+
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6">
+            <div class="card p-3">
+                <small class="text-muted">Assigned students</small>
+                <div class="fs-2 fw-bold">@assignedStudentIds.Count</div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6">
+            <div class="card p-3">
+                <small class="text-muted">Overall class average</small>
+                <div class="fs-2 fw-bold">@classAvg%</div>
+            </div>
         </div>
     </div>
-</div>
+
+    <div class="card p-3">
+        <h5 class="mb-3">Highest-performing students</h5>
+        @if (topStudents.Count == 0)
+        {
+            <p class="text-muted mb-0">No student performance data yet.</p>
+        }
+        else
+        {
+            <ul class="list-group list-group-flush">
+                @foreach (var top in topStudents)
+                {
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>@top.Name <small class="text-muted">(@top.Section)</small></span>
+                        <span class="badge text-bg-dark">@top.Average%</span>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+}
+else
+{
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-3">
+            <div class="card p-3">
+                <small class="text-muted">Total students</small>
+                <div class="fs-2 fw-bold">@State.Students.Count</div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-3">
+            <div class="card p-3">
+                <small class="text-muted">Total teachers</small>
+                <div class="fs-2 fw-bold">@State.Teachers.Count</div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-3">
+            <div class="card p-3">
+                <small class="text-muted">Subjects</small>
+                <div class="fs-2 fw-bold">@State.Subjects.Count</div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-3">
+            <div class="card p-3">
+                <small class="text-muted">Enrollments</small>
+                <div class="fs-2 fw-bold">@State.Enrollments.Count</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-3">
+        <h5 class="mb-2">Administrative overview</h5>
+        <p class="text-muted mb-0">
+            Use <strong>Students</strong>, <strong>Teachers</strong>, <strong>Subjects</strong>, and <strong>Enrollments</strong> in the sidebar to manage users and courses. Grade evaluations remain restricted to teachers.
+        </p>
+    </div>
+}
 
 @code {
-    record Kpi(string Label, int Value);
-    record Course(string Name, int Grade);
+    record StudentSubjectSummary(EduTrackState.SubjectItem Subject, decimal Average);
 
-    // Todo vacío: luego estas listas se llenarán con datos reales
-    List<Kpi> kpis = new()
+    List<StudentSubjectSummary> GetEnrolledSubjectsForStudent(int studentId)
     {
-        new("Total students", 0),
-        new("Active enrollments", 0),
-        new("Pending enrollments", 0)
-    };
-    List<Course> courses = new();
-    List<string> activity = new();
+        var subjectIds = State.Enrollments
+            .Where(e => e.StudentId == studentId)
+            .Select(e => e.SubjectId)
+            .Distinct();
+
+        var result = new List<StudentSubjectSummary>();
+        foreach (var subId in subjectIds)
+        {
+            var subject = State.Subjects.FirstOrDefault(s => s.Id == subId);
+            if (subject is not null)
+            {
+                var avg = State.GetStudentSubjectAverage(studentId, subId);
+                result.Add(new StudentSubjectSummary(subject, avg));
+            }
+        }
+        return result;
+    }
 }

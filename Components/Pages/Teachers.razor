@@ -1,0 +1,152 @@
+@page "/teachers"
+@rendermode InteractiveServer
+@using EduTrack.Services
+@inject EduTrackState State
+
+<PageTitle>Teachers</PageTitle>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h1 class="h3 mb-0">Teachers</h1>
+    <button type="button" class="btn btn-dark" @onclick="OpenAddForm">Add teacher</button>
+</div>
+
+@if (showForm)
+{
+    <div class="card p-3 mb-3">
+        <h5 class="mb-3">@(editingId is null ? "Register teacher" : "Edit teacher")</h5>
+        <div class="row g-2 mb-3">
+            <div class="col-md-4">
+                <label class="form-label">Full name</label>
+                <input type="text" class="form-control" @bind="name" placeholder="e.g. Jane Doe" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Email</label>
+                <input type="email" class="form-control" @bind="email" placeholder="jane@edutrack.edu" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Specialty</label>
+                <input type="text" class="form-control" @bind="specialty" placeholder="e.g. Mathematics" />
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-dark" @onclick="SaveTeacher">Save</button>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CancelForm">Cancel</button>
+        </div>
+    </div>
+}
+
+<input type="search" class="form-control mb-3" placeholder="Search by name, email, or specialty..."
+       @bind="search" @bind:event="oninput" />
+
+@if (State.Teachers.Count == 0)
+{
+    <div class="card p-4 text-center">
+        <p class="fw-semibold mb-1">No teachers yet</p>
+        <p class="text-muted mb-0">Click "Add teacher" to register the first one.</p>
+    </div>
+}
+else
+{
+    <div class="table-responsive card">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Specialty</th>
+                    <th>Status</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var t in Filtered)
+                {
+                    <tr>
+                        <td>@t.Name</td>
+                        <td>@t.Email</td>
+                        <td>@t.Specialty</td>
+                        <td>
+                            <span class="badge @(t.Active ? "text-bg-dark" : "text-bg-secondary")">
+                                @(t.Active ? "Active" : "Inactive")
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            <button type="button" class="btn btn-sm btn-outline-dark" @onclick="() => EditTeacher(t)">Edit</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => DeleteTeacher(t.Id)">Delete</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (!Filtered.Any())
+    {
+        <p class="text-muted mt-3">No teachers match your search.</p>
+    }
+}
+
+@code {
+    string search = "";
+    bool showForm = false;
+    int? editingId = null;
+
+    string name = "";
+    string email = "";
+    string specialty = "";
+
+    IEnumerable<EduTrackState.TeacherItem> Filtered => State.Teachers.Where(t =>
+        string.IsNullOrWhiteSpace(search) ||
+        t.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+        t.Email.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+        t.Specialty.Contains(search, StringComparison.OrdinalIgnoreCase));
+
+    void OpenAddForm()
+    {
+        editingId = null;
+        name = "";
+        email = "";
+        specialty = "";
+        showForm = true;
+    }
+
+    void EditTeacher(EduTrackState.TeacherItem t)
+    {
+        editingId = t.Id;
+        name = t.Name;
+        email = t.Email;
+        specialty = t.Specialty;
+        showForm = true;
+    }
+
+    void SaveTeacher()
+    {
+        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(email))
+            return;
+
+        if (editingId is null)
+        {
+            State.AddTeacher(name.Trim(), email.Trim(), specialty.Trim());
+        }
+        else
+        {
+            State.UpdateTeacher(editingId.Value, name.Trim(), email.Trim(), specialty.Trim());
+        }
+
+        CancelForm();
+    }
+
+    void DeleteTeacher(int id)
+    {
+        State.DeleteTeacher(id);
+    }
+
+    void CancelForm()
+    {
+        showForm = false;
+        editingId = null;
+        name = "";
+        email = "";
+        specialty = "";
+    }
+}

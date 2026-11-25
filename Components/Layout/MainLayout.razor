@@ -1,12 +1,49 @@
 ﻿@inherits LayoutComponentBase
+@using EduTrack.Services
+@inject EduTrackState State
 
 <div class="d-flex" style="min-height:100vh">
     <nav class="d-none d-md-block border-end bg-light p-3" style="width:220px">
-        <h5 class="fw-bold mb-4">EduTrack</h5>
-        <ul class="nav flex-column">
-            <li><NavLink class="nav-link" href="dashboard">Dashboard</NavLink></li>
-            <li><NavLink class="nav-link" href="students">Students</NavLink></li>
-            <li><NavLink class="nav-link" href="enrollments">Enrollments</NavLink></li>
+        <h5 class="fw-bold mb-3">EduTrack</h5>
+
+        <div class="mb-3">
+            <label class="form-label small text-muted mb-1">Active role (test)</label>
+            <select class="form-select form-select-sm" @bind="State.ActiveRole">
+                <option value="Student">Student</option>
+                <option value="Teacher">Teacher</option>
+                <option value="Admin">Admin</option>
+            </select>
+        </div>
+
+        <ul class="nav flex-column gap-1">
+            <li class="nav-item">
+                <NavLink class="nav-link" href="dashboard">Dashboard</NavLink>
+            </li>
+
+            @if (State.ActiveRole == "Admin")
+            {
+                <li class="nav-item mt-3 small text-uppercase text-muted fw-semibold px-3">Admin</li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="students">Students</NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="teachers">Teachers</NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="subjects">Subjects</NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="enrollments">Enrollments</NavLink>
+                </li>
+            }
+
+            @if (State.ActiveRole == "Teacher")
+            {
+                <li class="nav-item mt-3 small text-uppercase text-muted fw-semibold px-3">Teacher</li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="teacher/grading">Activities &amp; Grading</NavLink>
+                </li>
+            }
         </ul>
     </nav>
 
@@ -15,8 +52,19 @@
     </main>
 </div>
 
-<nav class="d-md-none fixed-bottom bg-white border-top d-flex justify-content-around py-2">
+<nav class="d-md-none fixed-bottom bg-white border-top d-flex justify-content-around py-2 small">
     <NavLink class="text-dark text-decoration-none" href="dashboard">Dashboard</NavLink>
-    <NavLink class="text-dark text-decoration-none" href="students">Students</NavLink>
-    <NavLink class="text-dark text-decoration-none" href="enrollments">Enrollments</NavLink>
+
+    @if (State.ActiveRole == "Admin")
+    {
+        <NavLink class="text-dark text-decoration-none" href="students">Students</NavLink>
+        <NavLink class="text-dark text-decoration-none" href="teachers">Teachers</NavLink>
+        <NavLink class="text-dark text-decoration-none" href="subjects">Subjects</NavLink>
+        <NavLink class="text-dark text-decoration-none" href="enrollments">Enrollments</NavLink>
+    }
+
+    @if (State.ActiveRole == "Teacher")
+    {
+        <NavLink class="text-dark text-decoration-none" href="teacher/grading">Grading</NavLink>
+    }
 </nav>
