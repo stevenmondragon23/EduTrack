@@ -1,24 +1,64 @@
 @page "/enrollments"
 @rendermode InteractiveServer
+@using EduTrack.Services
+@inject EduTrackState State
 
 <PageTitle>Enrollments</PageTitle>
 
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <h1 class="h3 mb-0">Enrollments</h1>
-    <button type="button" class="btn btn-dark">New enrollment</button>
+    <button type="button" class="btn btn-dark" @onclick="ToggleForm">
+        @(showForm ? "Close form" : "New enrollment")
+    </button>
 </div>
 
-<select class="form-select mb-3" style="max-width:240px" @bind="status">
-    <option value="">All statuses</option>
-    <option value="Active">Active</option>
-    <option value="Pending">Pending</option>
-</select>
+@if (showForm)
+{
+    <div class="card p-3 mb-3">
+        <h5 class="mb-3">Enroll student in subject</h5>
+        <div class="row g-2 mb-3">
+            <div class="col-md-6">
+                <label class="form-label">Student</label>
+                <select class="form-select" @bind="selectedStudentId">
+                    <option value="">-- Select a student --</option>
+                    @foreach (var st in State.Students)
+                    {
+                        <option value="@st.Id">@st.Name (@st.Section)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Subject</label>
+                <select class="form-select" @bind="selectedSubjectId">
+                    <option value="">-- Select a subject --</option>
+                    @foreach (var sub in State.Subjects)
+                    {
+                        <option value="@sub.Id">@sub.Code - @sub.Name</option>
+                    }
+                </select>
+            </div>
+        </div>
 
-@if (enrollments.Count == 0)
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <p class="small text-muted mb-2">@message</p>
+        }
+
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-dark" @onclick="CreateEnrollment">Enroll</button>
+            <button type="button" class="btn btn-outline-secondary" @onclick="() => showForm = false">Cancel</button>
+        </div>
+    </div>
+}
+
+<input type="search" class="form-control mb-3" placeholder="Search by student or subject..."
+       @bind="search" @bind:event="oninput" />
+
+@if (State.Enrollments.Count == 0)
 {
     <div class="card p-4 text-center">
         <p class="fw-semibold mb-1">No enrollments yet</p>
-        <p class="text-muted mb-0">Click "New enrollment" to create the first one.</p>
+        <p class="text-muted mb-0">Click "New enrollment" to assign a student to a subject.</p>
     </div>
 }
 else
@@ -28,9 +68,8 @@ else
             <thead class="table-light">
                 <tr>
                     <th>Student</th>
-                    <th>Grade / Section</th>
-                    <th>Date</th>
-                    <th>Status</th>
+                    <th>Subject</th>
+                    <th>Section</th>
                     <th class="text-end">Actions</th>
                 </tr>
             </thead>
@@ -38,13 +77,11 @@ else
                 @foreach (var e in Filtered)
                 {
                     <tr>
-                        <td>@e.Student</td>
-                        <td>@e.Section</td>
-                        <td>@e.Date</td>
-                        <td><span class="badge @(e.Status == "Active" ? "text-bg-dark" : "text-bg-warning")">@e.Status</span></td>
+                        <td>@e.StudentName</td>
+                        <td><span class="badge text-bg-dark me-1">#@e.SubjectId</span> @e.SubjectName</td>
+                        <td>@GetStudentSection(e.StudentId)</td>
                         <td class="text-end">
-                            <button type="button" class="btn btn-sm btn-outline-dark">Edit</button>
-                            <button type="button" class="btn btn-sm btn-outline-danger">Delete</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveEnrollment(e.Id)">Remove</button>
                         </td>
                     </tr>
                 }
@@ -54,17 +91,59 @@ else
 
     @if (!Filtered.Any())
     {
-        <p class="text-muted mt-3">No enrollments with that status.</p>
+        <p class="text-muted mt-3">No enrollments match your search.</p>
     }
 }
 
 @code {
-    record Enrollment(string Student, string Section, string Date, string Status);
+    bool showForm = false;
+    string search = "";
+    string message = "";
 
-    string status = "";
+    int? selectedStudentId;
+    int? selectedSubjectId;
 
-    // Lista vacía: luego vendrá de la base de datos
-    List<Enrollment> enrollments = new();
+    IEnumerable<EduTrackState.EnrollmentItem> Filtered => State.Enrollments.Where(e =>
+        string.IsNullOrWhiteSpace(search) ||
+        e.StudentName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+        e.SubjectName.Contains(search, StringComparison.OrdinalIgnoreCase));
 
-    IEnumerable<Enrollment> Filtered => enrollments.Where(e => status == "" || e.Status == status);
+    void ToggleForm()
+    {
+        message = "";
+        selectedStudentId = State.Students.FirstOrDefault()?.Id;
+        selectedSubjectId = State.Subjects.FirstOrDefault()?.Id;
+        showForm = !showForm;
+    }
+
+    void CreateEnrollment()
+    {
+        if (selectedStudentId is null || selectedSubjectId is null)
+        {
+            message = "Please choose both a student and a subject.";
+            return;
+        }
+
+        var beforeCount = State.Enrollments.Count;
+        State.EnrollStudent(selectedStudentId.Value, selectedSubjectId.Value);
+
+        if (State.Enrollments.Count == beforeCount)
+        {
+            message = "That student is already enrolled in this subject.";
+            return;
+        }
+
+        message = "";
+        showForm = false;
+    }
+
+    void RemoveEnrollment(int id)
+    {
+        State.RemoveEnrollment(id);
+    }
+
+    string GetStudentSection(int studentId)
+    {
+        return State.Students.FirstOrDefault(s => s.Id == studentId)?.Section ?? "—";
+    }
 }

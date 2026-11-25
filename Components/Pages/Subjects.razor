@@ -1,0 +1,158 @@
+@page "/subjects"
+@rendermode InteractiveServer
+@using EduTrack.Services
+@inject EduTrackState State
+
+<PageTitle>Subjects</PageTitle>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h1 class="h3 mb-0">Subjects</h1>
+    <button type="button" class="btn btn-dark" @onclick="OpenAddForm">Add subject</button>
+</div>
+
+@if (showForm)
+{
+    <div class="card p-3 mb-3">
+        <h5 class="mb-3">@(editingId is null ? "Create subject" : "Edit subject")</h5>
+        <div class="row g-2 mb-3">
+            <div class="col-md-4">
+                <label class="form-label">Subject name</label>
+                <input type="text" class="form-control" @bind="name" placeholder="e.g. Mathematics" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Code</label>
+                <input type="text" class="form-control" @bind="code" placeholder="e.g. MATH101" />
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">Assigned teacher</label>
+                <select class="form-select" @bind="selectedTeacherId">
+                    <option value="">-- Select a teacher --</option>
+                    @foreach (var t in State.Teachers)
+                    {
+                        <option value="@t.Id">@t.Name (@t.Specialty)</option>
+                    }
+                </select>
+                @if (State.Teachers.Count == 0)
+                {
+                    <div class="form-text text-warning">No teachers registered yet. Add one on the Teachers page first.</div>
+                }
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-dark" @onclick="SaveSubject">Save</button>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CancelForm">Cancel</button>
+        </div>
+    </div>
+}
+
+<input type="search" class="form-control mb-3" placeholder="Search by subject name, code, or teacher..."
+       @bind="search" @bind:event="oninput" />
+
+@if (State.Subjects.Count == 0)
+{
+    <div class="card p-4 text-center">
+        <p class="fw-semibold mb-1">No subjects yet</p>
+        <p class="text-muted mb-0">Click "Add subject" to create a course and assign a teacher.</p>
+    </div>
+}
+else
+{
+    <div class="table-responsive card">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Code</th>
+                    <th>Subject</th>
+                    <th>Assigned Teacher</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var s in Filtered)
+                {
+                    <tr>
+                        <td><span class="badge text-bg-dark">@s.Code</span></td>
+                        <td>@s.Name</td>
+                        <td>@s.TeacherName</td>
+                        <td class="text-end">
+                            <button type="button" class="btn btn-sm btn-outline-dark" @onclick="() => EditSubject(s)">Edit</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => DeleteSubject(s.Id)">Delete</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (!Filtered.Any())
+    {
+        <p class="text-muted mt-3">No subjects match your search.</p>
+    }
+}
+
+@code {
+    string search = "";
+    bool showForm = false;
+    int? editingId = null;
+
+    string code = "";
+    string name = "";
+    int? selectedTeacherId = null;
+
+    IEnumerable<EduTrackState.SubjectItem> Filtered => State.Subjects.Where(s =>
+        string.IsNullOrWhiteSpace(search) ||
+        s.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+        s.Code.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+        s.TeacherName.Contains(search, StringComparison.OrdinalIgnoreCase));
+
+    void OpenAddForm()
+    {
+        editingId = null;
+        code = "";
+        name = "";
+        selectedTeacherId = State.Teachers.FirstOrDefault()?.Id;
+        showForm = true;
+    }
+
+    void EditSubject(EduTrackState.SubjectItem s)
+    {
+        editingId = s.Id;
+        code = s.Code;
+        name = s.Name;
+        selectedTeacherId = s.TeacherId;
+        showForm = true;
+    }
+
+    void SaveSubject()
+    {
+        if (string.IsNullOrWhiteSpace(name) || selectedTeacherId is null)
+            return;
+
+        var cleanCode = string.IsNullOrWhiteSpace(code) ? "SUBJ" : code.Trim().ToUpper();
+
+        if (editingId is null)
+        {
+            State.AddSubject(cleanCode, name.Trim(), selectedTeacherId.Value);
+        }
+        else
+        {
+            State.UpdateSubject(editingId.Value, cleanCode, name.Trim(), selectedTeacherId.Value);
+        }
+
+        CancelForm();
+    }
+
+    void DeleteSubject(int id)
+    {
+        State.DeleteSubject(id);
+    }
+
+    void CancelForm()
+    {
+        showForm = false;
+        editingId = null;
+        code = "";
+        name = "";
+        selectedTeacherId = null;
+    }
+}

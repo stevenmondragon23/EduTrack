@@ -1,17 +1,44 @@
 @page "/students"
 @rendermode InteractiveServer
+@using EduTrack.Services
+@inject EduTrackState State
 
 <PageTitle>Students</PageTitle>
 
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <h1 class="h3 mb-0">Students</h1>
-    <button type="button" class="btn btn-dark">Add student</button>
+    <button type="button" class="btn btn-dark" @onclick="OpenAddForm">Add student</button>
 </div>
+
+@if (showForm)
+{
+    <div class="card p-3 mb-3">
+        <h5 class="mb-3">@(editingId is null ? "Register student" : "Edit student")</h5>
+        <div class="row g-2 mb-3">
+            <div class="col-md-4">
+                <label class="form-label">Full name</label>
+                <input type="text" class="form-control" @bind="name" placeholder="e.g. Alex Rivera" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Email</label>
+                <input type="email" class="form-control" @bind="email" placeholder="alex@edutrack.edu" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Grade / Section</label>
+                <input type="text" class="form-control" @bind="section" placeholder="e.g. Section A" />
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-dark" @onclick="SaveStudent">Save</button>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CancelForm">Cancel</button>
+        </div>
+    </div>
+}
 
 <input type="search" class="form-control mb-3" placeholder="Search by name or email..."
        @bind="search" @bind:event="oninput" />
 
-@if (students.Count == 0)
+@if (State.Students.Count == 0)
 {
     <div class="card p-4 text-center">
         <p class="fw-semibold mb-1">No students yet</p>
@@ -38,10 +65,14 @@ else
                         <td>@s.Name</td>
                         <td>@s.Email</td>
                         <td>@s.Section</td>
-                        <td><span class="badge @(s.Active ? "text-bg-dark" : "text-bg-secondary")">@(s.Active ? "Active" : "Inactive")</span></td>
+                        <td>
+                            <span class="badge @(s.Active ? "text-bg-dark" : "text-bg-secondary")">
+                                @(s.Active ? "Active" : "Inactive")
+                            </span>
+                        </td>
                         <td class="text-end">
-                            <button type="button" class="btn btn-sm btn-outline-dark">Edit</button>
-                            <button type="button" class="btn btn-sm btn-outline-danger">Delete</button>
+                            <button type="button" class="btn btn-sm btn-outline-dark" @onclick="() => EditStudent(s)">Edit</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => DeleteStudent(s.Id)">Delete</button>
                         </td>
                     </tr>
                 }
@@ -56,14 +87,68 @@ else
 }
 
 @code {
-    record Student(string Name, string Email, string Section, bool Active);
-
     string search = "";
+    bool showForm = false;
+    int? editingId = null;
 
-    // Lista vacía: luego vendrá de la base de datos
-    List<Student> students = new();
+    string name = "";
+    string email = "";
+    string section = "";
 
-    IEnumerable<Student> Filtered => students.Where(s =>
+    IEnumerable<EduTrackState.StudentItem> Filtered => State.Students.Where(s =>
+        string.IsNullOrWhiteSpace(search) ||
         s.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-        s.Email.Contains(search, StringComparison.OrdinalIgnoreCase));
+        s.Email.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+        s.Section.Contains(search, StringComparison.OrdinalIgnoreCase));
+
+    void OpenAddForm()
+    {
+        editingId = null;
+        name = "";
+        email = "";
+        section = "";
+        showForm = true;
+    }
+
+    void EditStudent(EduTrackState.StudentItem s)
+    {
+        editingId = s.Id;
+        name = s.Name;
+        email = s.Email;
+        section = s.Section;
+        showForm = true;
+    }
+
+    void SaveStudent()
+    {
+        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(email))
+            return;
+
+        var cleanSection = string.IsNullOrWhiteSpace(section) ? "General" : section.Trim();
+
+        if (editingId is null)
+        {
+            State.AddStudent(name.Trim(), email.Trim(), cleanSection);
+        }
+        else
+        {
+            State.UpdateStudent(editingId.Value, name.Trim(), email.Trim(), cleanSection);
+        }
+
+        CancelForm();
+    }
+
+    void DeleteStudent(int id)
+    {
+        State.DeleteStudent(id);
+    }
+
+    void CancelForm()
+    {
+        showForm = false;
+        editingId = null;
+        name = "";
+        email = "";
+        section = "";
+    }
 }
